@@ -134,21 +134,21 @@ import random
 
 eda_augmentor = EDA()
 
-def apply_eda(text):
+def apply_eda(text, prob=0.7):
    # Ensure text is valid
     if not isinstance(text, str) or text.strip() == "":
         return text  # Return unchanged if empty or NaN
 
     num_words = len(text.split())
 
-    # Apply each augmentation with a 40% probability
-    if random.random() < 0.4:
+    # Apply each augmentation with a 70% probability
+    if random.random() < prob:
         text = eda_augmentor.synonym_replacement(text)  # Synonym Replacement
-    if random.random() < 0.4:
+    if random.random() < prob:
         text = eda_augmentor.random_insertion(text)  # Random Insertion
-    if num_words >= 2 and random.random() < 0.4:
+    if num_words >= 2 and random.random() < prob:
         text = eda_augmentor.random_swap(text)  # Random Swap
-    if random.random() < 0.4:
+    if random.random() < prob:
         text = eda_augmentor.random_deletion(text)  # Random Deletion
 
     return text
@@ -159,9 +159,19 @@ model_checkpoint = "microsoft/deberta-v3-base"
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, use_fast=True)
 
 
-def preprocess_text(phrases_batched):
-    preprocessed_phrases = []
-    for text in phrases_batched['text']:
+def preprocess_text(phrases_batched, augment_func=None, batch_before=False):
+    original_texts = phrases_batched['text']
+    original_labels = phrases_batched['label']
+
+    if augment_func is not None and batch_before is True:
+        augmented_texts, augmented_labels = augment_func(original_texts, original_labels)
+        original_texts.extend(augmented_texts)
+        original_labels.extend(augmented_labels)
+
+    preprocessed_texts = []
+    labels = []
+
+    for text, label in zip(original_texts, original_labels):
         # Expand contractions (e.g., "don't" -> "do not")
         text = contractions.fix(text)
 
@@ -170,9 +180,6 @@ def preprocess_text(phrases_batched):
 
         #  Remove punctuation
         text = text.translate(punctuation_table)
-
-        # Apply EDA
-        # text = apply_eda(text)
 
         # Tokenization
         tokens = word_tokenize(text)
@@ -185,9 +192,21 @@ def preprocess_text(phrases_batched):
 
         # Remove duplicate words (consider if needed)
         unique_tokens = list(dict.fromkeys(lemmatized_tokens))
-        preprocessed_phrases.append(' '.join(unique_tokens))
+        cleaned_text = ' '.join(unique_tokens)
 
-    return tokenizer(preprocessed_phrases, truncation=True, padding=True)
+        preprocessed_texts.append(cleaned_text)
+        labels.append(label)
+
+        # Apply data augmentation if needed
+        if augment_func is not None and batch_before is False:
+            augmented_text = augment_func(cleaned_text)
+            preprocessed_texts.append(augmented_text)
+            labels.append(label)
+
+    # Tokenize the preprocessed texts and add labels
+    tokenized = tokenizer(preprocessed_texts, truncation=True, padding=True)
+    tokenized["label"] = labels
+    return tokenized
 
 from transformers import AutoModelForSequenceClassification, TrainingArguments, Trainer, AutoConfig
 import optuna
@@ -209,7 +228,12 @@ dataset_test = Dataset.from_pandas(test_df)
 
 
 model_name = "DebertaV2"
-encoded_train_dataset = dataset_train.map(preprocess_text, batched=True)
+
+preprocessed_train_data = preprocess_text({
+    'text': train_df['text'].tolist(),
+    'label': train_df['label'].tolist()
+}, augment_func=apply_eda)
+encoded_train_dataset = Dataset.from_dict(preprocessed_train_data)
 encoded_val_dataset = dataset_val.map(preprocess_text, batched=True)
 encoded_test_dataset = dataset_test.map(preprocess_text, batched=True)
 
@@ -271,7 +295,6 @@ def objective(trial):
 
     return eval_result["eval_loss"]
 
-
 study = optuna.create_study(direction="minimize")
 study.optimize(objective, n_trials=30)
 
@@ -279,5 +302,7 @@ print("Best trial:")
 trial = study.best_trial
 print(trial.value)
 print(trial.params)
+
+
 
 

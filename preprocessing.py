@@ -4,9 +4,19 @@ model_checkpoint = "microsoft/deberta-v3-base"
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, use_fast=True)
 
 
-def preprocess_text(phrases_batched):
-    preprocessed_phrases = []
-    for text in phrases_batched['text']:
+def preprocess_text(phrases_batched, augment_func=None, batch_before=False):
+    original_texts = phrases_batched['text']
+    original_labels = phrases_batched['label']
+
+    if augment_func is not None and batch_before is True:
+        augmented_texts, augmented_labels = augment_func(original_texts, original_labels)
+        original_texts.extend(augmented_texts)
+        original_labels.extend(augmented_labels)
+
+    preprocessed_texts = []
+    labels = []
+
+    for text, label in zip(original_texts, original_labels):
         # Expand contractions (e.g., "don't" -> "do not")
         text = contractions.fix(text)
 
@@ -15,9 +25,6 @@ def preprocess_text(phrases_batched):
 
         #  Remove punctuation
         text = text.translate(punctuation_table)
-
-        # Apply EDA
-        # text = apply_eda(text)
 
         # Tokenization
         tokens = word_tokenize(text)
@@ -30,6 +37,18 @@ def preprocess_text(phrases_batched):
 
         # Remove duplicate words (consider if needed)
         unique_tokens = list(dict.fromkeys(lemmatized_tokens))
-        preprocessed_phrases.append(' '.join(unique_tokens))
+        cleaned_text = ' '.join(unique_tokens)
 
-    return tokenizer(preprocessed_phrases, truncation=True, padding=True)
+        preprocessed_texts.append(cleaned_text)
+        labels.append(label)
+
+        # Apply data augmentation if needed
+        if augment_func is not None and batch_before is False:
+            augmented_text = augment_func(cleaned_text)
+            preprocessed_texts.append(augmented_text)
+            labels.append(label)
+
+    # Tokenize the preprocessed texts and add labels
+    tokenized = tokenizer(preprocessed_texts, truncation=True, padding=True)
+    tokenized["label"] = labels
+    return tokenized
