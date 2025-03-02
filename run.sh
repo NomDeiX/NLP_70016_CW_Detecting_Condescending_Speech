@@ -4,7 +4,7 @@
 #SBATCH --mail-user=ms3319              # required to send email notifcations - please replace <your_username> with your college login name or email address
 #SBATCH --job-name=train_model_no_augmentation_normal_sampling             # Name of the job
 
-export PATH=/vol/bitbucket/${USER}/NLP_70016_CW_Detecting_Condescending_Speech/.venv/bin/:$PATH
+export PATH=/vol/bitbucket/${USER}/NLP_70016_CW_Detecting_Condescending_Speech/myenv/bin/:$PATH
 
 # Activate your virtual environment
 source activate
