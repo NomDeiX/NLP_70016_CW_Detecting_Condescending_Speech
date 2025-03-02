@@ -319,25 +319,6 @@ def apply_back_translation_marian(texts, labels, prob=0.7):
     return augmented_texts, augmented_labels
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 model_checkpoint = "microsoft/deberta-v3-base"
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
@@ -402,9 +383,7 @@ dataset_val = Dataset.from_pandas(val_df)
 dataset_test = Dataset.from_pandas(test_df)
 
 columns_to_remove = dataset_train.column_names
-
 augmentation_type = sys.argv[1]
-upsampling = sys.argv[2]
 
 if augmentation_type == "eda":
     augment_func = apply_eda
