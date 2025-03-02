@@ -445,6 +445,7 @@ def objective(trial):
     wandb.init(
         entity="mihnea-savin-imperial-college-london",
         project="my-awesome-project",
+        group=f"data_aug_{augmentation_type}",
         config=config.to_dict(),
         reinit=True  # ensures a new run is started for each trial
     )
