@@ -48,6 +48,7 @@ transformers_logger.setLevel(logging.WARNING)
 
 # Check CUDA availability
 cuda_available = torch.cuda.is_available()
+device = torch.device("cuda" if cuda_available else "cpu")
 if cuda_available:
   import tensorflow as tf
   # Get the GPU device name.
@@ -239,12 +240,12 @@ def apply_back_translation_google(texts, labels, prob=0.7):
 
 
 target_model_name = 'Helsinki-NLP/opus-mt-en-ROMANCE'
-target_tokenizer = MarianTokenizer.from_pretrained(target_model_name)
-target_model = MarianMTModel.from_pretrained(target_model_name)
+target_tokenizer = MarianTokenizer.from_pretrained(target_model_name).to(device)
+target_model = MarianMTModel.from_pretrained(target_model_name).to(device)
 
 en_model_name = 'Helsinki-NLP/opus-mt-ROMANCE-en'
-en_tokenizer = MarianTokenizer.from_pretrained(en_model_name)
-en_model = MarianMTModel.from_pretrained(en_model_name)
+en_tokenizer = MarianTokenizer.from_pretrained(en_model_name).to(device)
+en_model = MarianMTModel.from_pretrained(en_model_name).to(device)
 
 intermediate_langs_marian = ['fr', 'pt', 'es', 'it']
 
@@ -254,7 +255,7 @@ def translate_marian(texts, model, tokenizer, lang):
     src_texts = [template(text) for text in texts]
 
     # Tokenize the texts
-    encoded = tokenizer(src_texts, return_tensors="pt", padding=True, truncation=True)
+    encoded = tokenizer(src_texts, return_tensors="pt", padding=True, truncation=True).to(device)
 
     # Generate translation using model
     translated = model.generate(**encoded)
@@ -428,7 +429,7 @@ def objective(trial):
         # initializer_range=initializer_range,
     )
 
-    model = AutoModelForSequenceClassification.from_pretrained(model_checkpoint, config=config)
+    model = AutoModelForSequenceClassification.from_pretrained(model_checkpoint, config=config).to(device)
 
     args = TrainingArguments(
         f"{model_name}-finetuned-{task}",
@@ -440,8 +441,8 @@ def objective(trial):
         num_train_epochs=num_train_epochs,
         weight_decay=weight_decay,
         load_best_model_at_end=True,
-        metric_for_best_model="f1",
-)
+        metric_for_best_model="f1"
+    )
     wandb.init(
         entity="mihnea-savin-imperial-college-london",
         project="my-awesome-project",
