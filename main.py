@@ -120,17 +120,26 @@ dpm.load_task2(return_one_hot=True)
 tr_ids = pd.read_csv('train_semeval_parids-labels.csv')
 te_ids = pd.read_csv('dev_semeval_parids-labels.csv')
 
+
 # Convert IDs to string
 tr_ids.par_id = tr_ids.par_id.astype(str)
 te_ids.par_id = te_ids.par_id.astype(str)
 
 # Extract dataset
 data = dpm.train_task1_df
-
+gemini_df = pd.read_csv("gemini.tsv", sep="\t")
 
 # Split dataset while maintaining class balance
 train_df, temp_df = train_test_split(data, test_size=0.3, stratify=data['label'], random_state=42)
 val_df, test_df = train_test_split(temp_df, test_size=0.33, stratify=temp_df['label'], random_state=42)
+
+# Merge train_df and gemini_data
+cols_to_delete = [col for col in train_df.columns if col != 'text' and col != 'label']
+df1_clean = train_df.drop(columns=cols_to_delete)
+train_df =  pd.concat([df1_clean, gemini_df], axis=0)
+train_df = train_df.sample(frac=1, random_state=30)
+
+
 
 # Print dataset sizes
 print(f"Train size: {len(train_df)}, Validation size: {len(val_df)}, Test size: {len(test_df)}")
@@ -383,8 +392,12 @@ dataset_train = Dataset.from_pandas(train_df)
 dataset_val = Dataset.from_pandas(val_df)
 dataset_test = Dataset.from_pandas(test_df)
 
+
 columns_to_remove = dataset_train.column_names
 augmentation_type = sys.argv[1]
+augment_func = None
+batch_before = False
+
 
 if augmentation_type == "eda":
     augment_func = apply_eda
@@ -458,7 +471,7 @@ def objective(trial):
     wandb.init(
         entity="mihnea-savin-imperial-college-london",
         project="my-awesome-project",
-        group=f"data_aug_{augmentation_type}",
+        group="initial-hyper-model",
         config=config.to_dict(),
         reinit=True  # ensures a new run is started for each trial
     )
@@ -480,12 +493,66 @@ def objective(trial):
     return eval_result["eval_loss"]
 
 
-study = optuna.create_study(direction="minimize")
-study.optimize(objective, n_trials=30)
+# study = optuna.create_study(direction="minimize")
+# study.optimize(objective, n_trials=30)
+hidden_dropout_prob = 0.15456077016436726
+attention_probs_dropout_prob = 0.2774663662471877
 
-print("Best trial:")
-trial = study.best_trial
-print(trial.value)
-print(trial.params)
+
+batch_size = 4
+num_train_epochs = 3
+weight_decay = 0.07935840941532232
+learning_rate = 0.00001489799367430798
+
+
+config = AutoConfig.from_pretrained(
+    model_checkpoint,
+    num_labels=num_labels,
+    hidden_dropout_prob=hidden_dropout_prob,
+    attention_probs_dropout_prob=attention_probs_dropout_prob,
+)
+
+model = AutoModelForSequenceClassification.from_pretrained(model_checkpoint, config=config).to(device)
+
+args = TrainingArguments(
+    f"{model_name}-finetuned-{task}",
+    eval_strategy = "epoch",
+    save_strategy = "epoch",
+    learning_rate=learning_rate,
+    per_device_train_batch_size=batch_size,
+    per_device_eval_batch_size=batch_size,
+    num_train_epochs=num_train_epochs,
+    weight_decay=weight_decay,
+    load_best_model_at_end=True,
+    metric_for_best_model="f1"
+)
+wandb.init(
+    entity="mihnea-savin-imperial-college-london",
+    project="my-awesome-project",
+    group="initial-hyper-model",
+    config=config.to_dict(),
+)
+
+
+trainer = Trainer(
+    model,
+    args,
+    train_dataset=encoded_train_dataset,
+    eval_dataset=encoded_val_dataset,
+    processing_class=tokenizer,
+    compute_metrics=compute_metrics
+)
+
+trainer.train()
+eval_result = trainer.evaluate()
+
+model.save_pretrained("./model_initial_hyper")
+tokenizer.save_pretrained("./model_initial_hyper")
+
+artifact = wandb.Artifact("initial-hyper-model", type="model")
+artifact.add_dir("./model_initial_hyper")
+wandb.log_artifact(artifact)
+wandb.finish()
+
 
 
