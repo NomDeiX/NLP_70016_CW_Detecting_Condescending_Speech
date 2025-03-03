@@ -408,15 +408,15 @@ def compute_metrics(eval_pred):
 
     result = f1_metric.compute(predictions=predictions, references=labels, average="binary")
     acc = accuracy_score(labels, predictions)
-    f1 = f1_score(labels, predictions, average='weighted')
-    precision = precision_score(labels, predictions, average='weighted')
-    recall = recall_score(labels, predictions, average='weighted')
+    f1 = f1_score(labels, predictions, average='binary')
+    precision = precision_score(labels, predictions, average='binary')
+    recall = recall_score(labels, predictions, average='binary')
     conf_matrix = confusion_matrix(labels, predictions)
-    classification_report = classification_report(labels, predictions)
+    class_report = classification_report(labels, predictions)
 
     print(f"Accuracy: {acc:.4f}, F1-score: {f1:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
     print(f"Confusion Matrix:\n{conf_matrix}\n")
-    print(classification_report)
+    print(class_report)
 
     return result
 
