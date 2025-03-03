@@ -9,7 +9,6 @@ from urllib import request
 from collections import Counter
 from ast import literal_eval
 from simpletransformers.classification import ClassificationModel, ClassificationArgs,MultiLabelClassificationModel, MultiLabelClassificationArgs
-from sklearn.metrics import classification_report, accuracy_score
 import re
 import string
 import contractions
@@ -26,7 +25,6 @@ from datasets import Dataset, DatasetDict
 import evaluate
 from evaluate import load
 import numpy as np
-from transformers import AutoTokenizer
 from IPython.display import display
 from textaugment import EDA
 import random
@@ -38,7 +36,7 @@ from transformers import MarianMTModel, MarianTokenizer
 from concurrent.futures import ProcessPoolExecutor
 from deep_translator import GoogleTranslator
 import time
-
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, classification_report
 
 
 # Setup logging
@@ -240,11 +238,11 @@ def apply_back_translation_google(texts, labels, prob=0.7):
 
 
 target_model_name = 'Helsinki-NLP/opus-mt-en-ROMANCE'
-target_tokenizer = MarianTokenizer.from_pretrained(target_model_name).to(device)
+target_tokenizer = MarianTokenizer.from_pretrained(target_model_name)
 target_model = MarianMTModel.from_pretrained(target_model_name).to(device)
 
 en_model_name = 'Helsinki-NLP/opus-mt-ROMANCE-en'
-en_tokenizer = MarianTokenizer.from_pretrained(en_model_name).to(device)
+en_tokenizer = MarianTokenizer.from_pretrained(en_model_name)
 en_model = MarianMTModel.from_pretrained(en_model_name).to(device)
 
 intermediate_langs_marian = ['fr', 'pt', 'es', 'it']
@@ -406,6 +404,17 @@ def compute_metrics(eval_pred):
     predictions = np.argmax(predictions, axis=1)
 
     result = f1_metric.compute(predictions=predictions, references=labels, average="binary")
+    acc = accuracy_score(labels, predictions)
+    f1 = f1_score(labels, predictions, average='weighted')
+    precision = precision_score(labels, predictions, average='weighted')
+    recall = recall_score(labels, predictions, average='weighted')
+    conf_matrix = confusion_matrix(labels, predictions)
+    classification_report = classification_report(labels, predictions)
+
+    print(f"Accuracy: {acc:.4f}, F1-score: {f1:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
+    print(f"Confusion Matrix:\n{conf_matrix}\n")
+    print(classification_report)
+
     return result
 
 
