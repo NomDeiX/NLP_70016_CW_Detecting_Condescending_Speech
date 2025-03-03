@@ -1,3 +1,4 @@
+from urllib import request
 import re
 import pandas as pd
 import string
@@ -5,6 +6,16 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, classification_report
+
+# Download dont_patronize_me module
+module_url = f"https://raw.githubusercontent.com/Perez-AlmendrosC/dontpatronizeme/master/semeval-2022/dont_patronize_me.py"
+module_name = module_url.split('/')[-1]
+print(f'Fetching {module_name}')
+#with open("file_1.txt") as f1, open("file_2.txt") as f2
+with request.urlopen(module_url) as f, open(module_name,'w') as outf:
+  a = f.read()
+  outf.write(a.decode('utf-8'))
+
 from dont_patronize_me import DontPatronizeMe
 
 # Minimal text preprocessing for baselines
