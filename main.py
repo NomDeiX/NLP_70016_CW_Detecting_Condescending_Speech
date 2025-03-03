@@ -37,12 +37,15 @@ from concurrent.futures import ProcessPoolExecutor
 from deep_translator import GoogleTranslator
 import time
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, classification_report
-
+import multiprocessing
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 transformers_logger = logging.getLogger("transformers")
 transformers_logger.setLevel(logging.WARNING)
+
+# Handle multiprocessing start method
+multiprocessing.set_start_method('spawn', force=True)
 
 # Check CUDA availability
 cuda_available = torch.cuda.is_available()

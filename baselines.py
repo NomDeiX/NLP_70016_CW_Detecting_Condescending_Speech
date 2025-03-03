@@ -6,6 +6,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, classification_report
+import numpy as np
 
 # Download dont_patronize_me module
 module_url = f"https://raw.githubusercontent.com/Perez-AlmendrosC/dontpatronizeme/master/semeval-2022/dont_patronize_me.py"
@@ -31,12 +32,13 @@ def train_evaluate_model(x_train, x_test, y_train, y_test, vectorizer, model_nam
 
     model = LogisticRegression()
     model.fit(x_train_vec, y_train)
-    y_pred = model.predict(x_test_vec)
+    y_pred_probs = model.predict_proba(x_test_vec)
+    y_pred = np.argmax(y_pred_probs, axis=1)
 
     acc = accuracy_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred, average='weighted')
-    precision = precision_score(y_test, y_pred, average='weighted')
-    recall = recall_score(y_test, y_pred, average='weighted')
+    f1 = f1_score(y_test, y_pred, average='binary')
+    precision = precision_score(y_test, y_pred, average='binary')
+    recall = recall_score(y_test, y_pred, average='binary')
     conf_matrix = confusion_matrix(y_test, y_pred)
 
     print(f"{model_name} Performance:")
