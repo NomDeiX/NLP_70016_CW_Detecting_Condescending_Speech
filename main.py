@@ -39,6 +39,7 @@ import time
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, classification_report
 import multiprocessing
 
+print("imported")
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 transformers_logger = logging.getLogger("transformers")
@@ -522,7 +523,7 @@ def train_model(seed=42):
     model = AutoModelForSequenceClassification.from_pretrained(model_checkpoint, config=config)
     
     # Calculate steps for warmup
-    total_steps = len(train_encoded) // batch_size * num_train_epochs
+    total_steps = len(encoded_train_dataset) // batch_size * num_train_epochs
     warmup_steps = int(0.1 * total_steps)
     
     # Training arguments
@@ -548,21 +549,17 @@ def train_model(seed=42):
         warmup_ratio=0.1,  # 10% of steps for warmup
     )
     
-    # Early stopping callback - more patient with upsampled data
-    early_stopping_callback = EarlyStoppingCallback(
-        early_stopping_patience=3,
-        early_stopping_threshold=0.01
-    )
+
+   
     
     # Initialize trainer
-    trainer = CustomTrainer(
+    trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=train_encoded,
-        eval_dataset=val_encoded,
+        train_dataset=encoded_train_dataset,
+        eval_dataset=encoded_val_dataset,
         tokenizer=tokenizer,
         compute_metrics=compute_metrics,
-        callbacks=[early_stopping_callback],
     )
 
     trainer.train()
@@ -573,8 +570,9 @@ def train_model(seed=42):
 ######################
 
 seed = 35
+print("started training")
 model = train_model(seed)
-
+print("finished training")
 model.save_pretrained("./model_initial_hyper")
 tokenizer.save_pretrained("./model_initial_hyper")
 
