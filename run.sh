@@ -10,4 +10,4 @@ export PATH=/vol/bitbucket/${USER}/NLP_70016_CW_Detecting_Condescending_Speech/m
 source activate
 
 # Run your script
-python main.py
+python main.py none
