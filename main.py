@@ -438,8 +438,6 @@ def objective(trial):
 
     hidden_dropout_prob = trial.suggest_float("hidden_dropout_prob", 0.0, 0.5)
     attention_probs_dropout_prob = trial.suggest_float("attention_probs_dropout_prob", 0.0, 0.5)
-    # initializer_range = trial.suggest_float("initializer_range", 0.001, 0.1, log=True) #maybe include this
-    # batch_size = trial.suggest_categorical("batch_size", [8, 16, 32]) #4
     batch_size = 4
     num_train_epochs = trial.suggest_int("num_train_epochs", 2, 6)
     weight_decay = trial.suggest_float("weight_decay", 0.01, 0.1)
