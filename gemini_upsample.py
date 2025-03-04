@@ -68,7 +68,7 @@ class GeminiTextUpsampler:
 
         return pd.DataFrame(new_rows, columns=['text', 'label'])
     
-    def gemini_upsample_positives(self, df, new_generations_per_positive=3, negative_sampling_rate=0.33):
+    def gemini_upsample_positives(self, df, new_generations_per_positive=2, negative_sampling_rate=0.05):
         new_rows = []
         df_len = len(df)
         iterator = tqdm(df.iterrows(), total=df_len, desc="Generating variations") if df_len > 100 else df.iterrows()
