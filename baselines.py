@@ -30,7 +30,7 @@ def train_evaluate_model(x_train, x_test, y_train, y_test, vectorizer, model_nam
     x_train_vec = vectorizer.transform(x_train)
     x_test_vec = vectorizer.transform(x_test)
 
-    model = LogisticRegression()
+    model = LogisticRegression(class_weight='balanced')
     model.fit(x_train_vec, y_train)
     y_pred_probs = model.predict_proba(x_test_vec)
     y_pred = np.argmax(y_pred_probs, axis=1)
