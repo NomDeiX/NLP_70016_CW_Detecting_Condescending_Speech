@@ -172,7 +172,7 @@ def apply_eda(text, prob=0.55):
 
     num_words = len(text.split())
 
-    # Apply each augmentation with a 70% probability
+    # Apply each augmentation with a 55% probability
     if random.random() < prob:
         text = eda_augmentor.synonym_replacement(text)  # Synonym Replacement
     if random.random() < prob:
@@ -493,66 +493,94 @@ def objective(trial):
     return eval_result["eval_loss"]
 
 
-# study = optuna.create_study(direction="minimize")
+# study = optuna.create_study(direction="minimize") for tuning hyper parameters
 # study.optimize(objective, n_trials=30)
-hidden_dropout_prob = 0.15456077016436726
-attention_probs_dropout_prob = 0.2774663662471877
+def train_model(seed=42):
+    print(f"\n=== Training DeBERTa model with seed {seed} ===\n")
+    
+    # Set seeds for reproducibility
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    
+    # Optimized hyperparameters
+    hidden_dropout_prob = 0.1545
+    attention_probs_dropout_prob = 0.2774
+    num_train_epochs = 4  # Increased epochs for better learning with more data
+    weight_decay = 0.079
+    learning_rate = 0.00001489
+    batch_size = 4
+    
+    # Create model config
+    config = AutoConfig.from_pretrained(
+        model_checkpoint,
+        num_labels=2,
+        hidden_dropout_prob=hidden_dropout_prob,
+        attention_probs_dropout_prob=attention_probs_dropout_prob,
+    )
+    
+    # Initialize model
+    model = AutoModelForSequenceClassification.from_pretrained(model_checkpoint, config=config)
+    
+    # Calculate steps for warmup
+    total_steps = len(train_encoded) // batch_size * num_train_epochs
+    warmup_steps = int(0.1 * total_steps)
+    
+    # Training arguments
+    training_args = TrainingArguments(
+        output_dir=f"./deberta_model_{seed}",
+        evaluation_strategy="epoch",
+        save_strategy="epoch",
+        learning_rate=learning_rate,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
+        num_train_epochs=num_train_epochs,
+        weight_decay=weight_decay,
+        load_best_model_at_end=True,
+        metric_for_best_model="f1",
+        warmup_steps=warmup_steps,
+        max_grad_norm=1.0,
+        fp16=True if torch.cuda.is_available() else False,
+        gradient_accumulation_steps=2,
+        logging_steps=50,
+        seed=seed,
+        # Add explicit scheduler type
+        lr_scheduler_type="cosine",  # Cosine scheduler with warmup
+        warmup_ratio=0.1,  # 10% of steps for warmup
+    )
+    
+    # Early stopping callback - more patient with upsampled data
+    early_stopping_callback = EarlyStoppingCallback(
+        early_stopping_patience=3,
+        early_stopping_threshold=0.01
+    )
+    
+    # Initialize trainer
+    trainer = CustomTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_encoded,
+        eval_dataset=val_encoded,
+        tokenizer=tokenizer,
+        compute_metrics=compute_metrics,
+        callbacks=[early_stopping_callback],
+    )
+
+    trainer.train()
+    eval_result = trainer.evaluate()
+    return model
 
 
-batch_size = 4
-num_train_epochs = 3
-weight_decay = 0.07935840941532232
-learning_rate = 0.00001489799367430798
+######################
 
-
-config = AutoConfig.from_pretrained(
-    model_checkpoint,
-    num_labels=num_labels,
-    hidden_dropout_prob=hidden_dropout_prob,
-    attention_probs_dropout_prob=attention_probs_dropout_prob,
-)
-
-model = AutoModelForSequenceClassification.from_pretrained(model_checkpoint, config=config).to(device)
-
-args = TrainingArguments(
-    f"{model_name}-finetuned-{task}",
-    eval_strategy = "epoch",
-    save_strategy = "epoch",
-    learning_rate=learning_rate,
-    per_device_train_batch_size=batch_size,
-    per_device_eval_batch_size=batch_size,
-    num_train_epochs=num_train_epochs,
-    weight_decay=weight_decay,
-    load_best_model_at_end=True,
-    metric_for_best_model="f1"
-)
-wandb.init(
-    entity="mihnea-savin-imperial-college-london",
-    project="my-awesome-project",
-    group="initial-hyper-model",
-    config=config.to_dict(),
-)
-
-
-trainer = Trainer(
-    model,
-    args,
-    train_dataset=encoded_train_dataset,
-    eval_dataset=encoded_val_dataset,
-    processing_class=tokenizer,
-    compute_metrics=compute_metrics
-)
-
-trainer.train()
-eval_result = trainer.evaluate()
+seed = 35
+model = train_model(seed)
 
 model.save_pretrained("./model_initial_hyper")
 tokenizer.save_pretrained("./model_initial_hyper")
 
-artifact = wandb.Artifact("initial-hyper-model", type="model")
-artifact.add_dir("./model_initial_hyper")
-wandb.log_artifact(artifact)
-wandb.finish()
+
 
 
 
